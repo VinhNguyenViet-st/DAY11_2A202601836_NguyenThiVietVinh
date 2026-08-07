@@ -25,7 +25,7 @@ async def part1_attacks():
 
     from agents.agent import create_unsafe_agent, test_agent
     from agents.guards_agent import create_guards_agent
-    from attacks.attacks import run_attacks, generate_ai_attacks
+    from attacks.attacks import run_attacks, generate_ai_attacks, save_attack_results
 
     # --- Unsafe (required for hạng mục B) ---
     unsafe_agent, unsafe_runner = create_unsafe_agent()
@@ -44,11 +44,24 @@ async def part1_attacks():
     )
 
     print("\n--- Generating AI attacks (TODO 2) ---")
-    ai_attacks = await generate_ai_attacks()
+    try:
+        ai_attacks = await generate_ai_attacks()
+    except Exception as error:
+        print(f"AI attack generation failed: {error}")
+        ai_attacks = []
 
     print("\n" + "=" * 60)
     print("Local Guards results are diagnostic only → host verifier replay decides tiered bonus (max +10)")
     print("=" * 60)
+
+    save_attack_results(
+        unsafe_attacks=unsafe_results,
+        guards_attacks=guards_results,
+        ai_generated_attacks=ai_attacks,
+        output_path=str(
+            Path(__file__).resolve().parents[1] / "outputs" / "attack_results.json"
+        ),
+    )
 
     return {
         "unsafe": unsafe_results,

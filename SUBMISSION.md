@@ -87,7 +87,7 @@ Day-11-Guardrails-HITL-Responsible-AI/
 | Kết quả tấn công  | `outputs/attack_results.json`         |
 
 
-**Bằng chứng tấn công (hạng mục B / điểm cộng):** file `outputs/attack_results.json` (có `unsafe_attacks` / `guards_attacks`, trường `leaked`). Không cần chụp màn hình.
+**Bằng chứng tấn công:** file `outputs/attack_results.json` (có `unsafe_attacks` / `guards_attacks`, trường `leaked`). Không cần chụp màn hình. Trường này phân loại transcript local để học/debug, không tự cấp điểm cộng.
 
 ---
 
@@ -161,7 +161,7 @@ Ví dụ tối thiểu `outputs/attack_results.json`:
       "response_preview": "...",
       "leaked": false,
       "target": "guards",
-      "notes": "Chỉ leaked=true trên guards mới có điểm cộng"
+      "bonus_eligible": false
     }
   ],
   "ai_generated_attacks": [

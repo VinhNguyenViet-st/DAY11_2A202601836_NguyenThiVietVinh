@@ -25,6 +25,7 @@ from agents.security_boundary import (
     ExternalContent,
     assess_external_content,
     authorize_action,
+    contains_secret,
     contains_instruction_override,
     normalize_for_security,
 )
@@ -88,6 +89,16 @@ _OUTPUT_SECRET_PATTERNS = {
     "internal_host": r"\b[a-z0-9-]+\.internal(?::\d+)?\b",
     "password_assignment": r"(?:password|mật\s*khẩu)\s*(?:is|=|:)\s*\S+",
 }
+
+
+def check_secret_leak(response: str) -> bool:
+    """Classify synthetic sensitive output in local lab evidence.
+
+    This compatibility helper is intentionally independent of the host-owned
+    verifier canary. It is used only to label unsafe-demo and public-reference
+    transcripts written to ``outputs/``; it never determines bonus points.
+    """
+    return contains_secret(response or "")
 
 
 def detect_injection_strong(text: str) -> bool:

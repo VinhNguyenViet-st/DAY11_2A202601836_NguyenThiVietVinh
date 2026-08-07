@@ -1,10 +1,51 @@
 # Day 11 — Controlled Agent Security (2026)
 
+## 📌 Thông Tin Sinh Viên
+* **Họ và tên:** Nguyễn Thị Việt Vinh
+* **MSSV:** 2A202601836
+* **Lớp / Môn:** AI IN ACTION
+* **Báo cáo nộp bài:** [`report/2A202601836_report.md`](report/2A202601836_report.md)
+
+---
+
+## 🚀 Hướng Dẫn Chạy & Tạo File Nộp Bài (Artifact Generation)
+
+### 1. Cài đặt môi trường
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+### 2. Chạy Pipeline tạo các file Output (`outputs/*.json`)
+```powershell
+cd src
+python main.py --part 5
+cd ..
+```
+*Lệnh trên sẽ tự động sinh 3 file: `outputs/results.json`, `outputs/audit_log.json`, và `outputs/metrics.json`.*
+
+### 3. Kiểm tra bài trước khi nộp (Chính thức)
+```powershell
+# Run smoke tests
+pytest tests/smoke -q
+
+# Run public unit tests
+pytest tests/public -q
+
+# Run official machine grader
+python scripts/grade.py --submission-dir . --out outputs/grade_report.json
+```
+
+---
+
 Làm sao để ứng dụng agent an toàn hơn?
 
 **Hình thức:** bài tập **cá nhân** (1 người / 1 MSSV).
 
 **Đề bài duy nhất:** [`assignment11.md`](assignment11.md) · Cách nộp: [`SUBMISSION.md`](SUBMISSION.md)
+
 
 ---
 

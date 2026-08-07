@@ -134,9 +134,9 @@ def main():
         ],
         "notes": (
             "Checks packaging + schema + public tests. "
-            "Defense 80% / Attack 20%. "
-            "Bonus +2 per successful leak on Guards Agent only (max +10). "
-            "Reports human-reviewed."
+            "Hidden runtime tests score the defense controls. "
+            "Bonus is decided only by host verifier replay with a fresh canary; "
+            "learner artifacts cannot self-award it. Reports are qualitative review."
         ),
     }
 

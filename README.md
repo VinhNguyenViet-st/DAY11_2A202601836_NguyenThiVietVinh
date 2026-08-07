@@ -73,6 +73,18 @@ pytest tests/public -q
 python scripts/grade.py --submission-dir . --out outputs/grade_report.json
 ```
 
+Hoặc chạy cùng một self-check từ entry point mới (không cần API key):
+
+```powershell
+cd src
+python main.py --part 2
+```
+
+Lệnh này chạy smoke/public tests, tạo `outputs/grade_report.json` và liệt kê
+trạng thái của các artifact bắt buộc. `--part 2` không còn chạy walkthrough
+guardrails cũ. Nếu cần xem lại tài liệu cũ, dùng `python main.py --legacy-part 2`;
+nó chỉ để tham khảo và không thay thế checkpoint 2026.
+
 ### Red team và bonus
 
 1. Viết ≥5 prompt vào `src/attacks/attacks.py`

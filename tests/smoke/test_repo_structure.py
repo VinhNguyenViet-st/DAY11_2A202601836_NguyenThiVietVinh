@@ -27,18 +27,17 @@ def test_assignment_starters_exist():
         assert (ROOT / rel).is_file(), f"Missing {rel}"
 
 
-def test_guards_agent_exports_factory():
-    import sys
-
-    src = ROOT / "src"
-    sys.path.insert(0, str(src))
-    from agents.guards_agent import create_guards_agent, check_secret_leak, GUARDS_SECRETS
-
-    assert callable(create_guards_agent)
-    assert callable(check_secret_leak)
-    assert len(GUARDS_SECRETS) >= 3
-    assert check_secret_leak("the key is sk-vinbank-secret-2024") is True
-    assert check_secret_leak("hello banking") is False
+def test_public_guards_reference_has_no_verifier_secret_or_canary():
+    source = (ROOT / "src" / "agents" / "guards_agent.py").read_text(
+        encoding="utf-8"
+    ).lower()
+    forbidden = (
+        "vinuni-guard-canary-",
+        "admin password admin123",
+        "sk-vinbank-secret-2024",
+        "db at db.vinbank.internal",
+    )
+    assert not any(value in source for value in forbidden)
 
 
 def test_no_solution_notebook_shipped():

@@ -1,20 +1,21 @@
 """
 Lab 11 — Main Entry Point
-Run the full lab flow: attack -> defend -> test -> HITL design
+Run the Day 11 flows: red-team demo -> 2026 checkpoint verification.
 
 Usage:
-    python main.py              # Run all parts
-    python main.py --part 1     # Run only Part 1 (attacks)
-    python main.py --part 2     # Run only Part 2 (guardrails)
-    python main.py --part 3     # Run only Part 3 (testing pipeline)
-    python main.py --part 4     # Run only Part 4 (HITL design)
+    python main.py              # Run the 2026 checkpoint verification
+    python main.py --part 1     # Run the optional red-team demo (API key required)
+    python main.py --part 2     # Verify the 2026 controlled-security checkpoints
+    python main.py --legacy-part 2  # Run the old guardrails walkthrough (optional)
+    python main.py --legacy-part 3  # Run the old testing walkthrough (optional)
+    python main.py --legacy-part 4  # Run the old HITL walkthrough (optional)
 """
-import sys
 import asyncio
 import argparse
-
-from core.config import setup_api_key
-
+import importlib.util
+import subprocess
+import sys
+from pathlib import Path
 
 async def part1_attacks():
     """Attack the unsafe demo, then exercise the public Guards policy reference."""
@@ -56,41 +57,125 @@ async def part1_attacks():
     }
 
 
-async def part2_guardrails():
-    """Part 2: Implement and test guardrails."""
+def _run_checkpoint_command(name: str, command: list[str], cwd: Path) -> bool:
+    """Run one local verification command and print a concise result."""
+    print(f"\n--- {name} ---")
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            timeout=300,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        print(f"[FAIL] {name}: {error}")
+        return False
+
+    output = (completed.stdout + completed.stderr).strip()
+    if output:
+        print(output)
+    status = "PASS" if completed.returncode == 0 else "NEEDS WORK"
+    print(f"[{status}] {name}")
+    return completed.returncode == 0
+
+
+def _print_artifact_status(repo_root: Path) -> None:
+    """Show checkpoint artifacts without creating learner-controlled evidence."""
+    print("\n--- Checkpoint artifacts ---")
+    for relative_path in (
+        "outputs/results.json",
+        "outputs/audit_log.json",
+        "outputs/metrics.json",
+        "outputs/attack_results.json",
+        "outputs/grade_report.json",
+    ):
+        path = repo_root / relative_path
+        status = "CREATED" if path.is_file() else "MISSING"
+        print(f"[{status}] {relative_path}")
+
+
+def _checkpoint_dependencies_available() -> bool:
+    """Keep the no-API-key checkpoint failure actionable when setup is incomplete."""
+    required_modules = ("pytest", "jsonschema", "google.genai", "google.adk")
+    missing = [
+        module
+        for module in required_modules
+        if importlib.util.find_spec(module) is None
+    ]
+    if not missing:
+        return True
+
+    print("[SETUP REQUIRED] Missing Python packages: " + ", ".join(missing))
+    print("Run: python -m pip install -r requirements.txt")
+    print("No Google API key is needed for this checkpoint verification.")
+    return False
+
+
+async def part2_controlled_security() -> None:
+    """Verify the current 2026 checkpoint instead of running the legacy lab."""
+    repo_root = Path(__file__).resolve().parents[1]
     print("\n" + "=" * 60)
-    print("PART 2: Guardrails")
+    print("PART 2: Controlled Agent Security — Checkpoint Verification")
     print("=" * 60)
 
-    # Part 2A: Input guardrails
-    print("\n--- Part 2A: Input Guardrails ---")
+    if not _checkpoint_dependencies_available():
+        return
+
+    checks = (
+        ("Starter structure", [sys.executable, "-m", "pytest", "tests/smoke", "-q"]),
+        ("Security checkpoint tests", [sys.executable, "-m", "pytest", "tests/public", "-q"]),
+        (
+            "Submission self-check",
+            [
+                sys.executable,
+                "scripts/grade.py",
+                "--submission-dir",
+                ".",
+                "--out",
+                "outputs/grade_report.json",
+            ],
+        ),
+    )
+    results = [
+        _run_checkpoint_command(name, command, repo_root)
+        for name, command in checks
+    ]
+    _print_artifact_status(repo_root)
+
+    passed = sum(results)
+    print(f"\nCheckpoint commands passed: {passed}/{len(results)}")
+    if not results[1]:
+        print(
+            "Public tests are expected to fail on the untouched starter. "
+            "Complete the TODOs in src/assignment/, src/guardrails/ and src/hitl/."
+        )
+    print(
+        "outputs/grade_report.json is a packaging self-check only; hidden runtime "
+        "tests decide implementation points and the host verifier decides bonus."
+    )
+
+
+async def legacy_part2_guardrails():
+    """Optional pre-2026 walkthrough, retained only for reference."""
+    print("\n" + "=" * 60)
+    print("LEGACY PART 2: Guardrails walkthrough (not the 2026 checkpoint)")
+    print("=" * 60)
+
     from guardrails.input_guardrails import (
         test_injection_detection,
         test_topic_filter,
         test_input_plugin,
     )
+    from guardrails.output_guardrails import test_content_filter, _init_judge
+
     test_injection_detection()
     print()
     test_topic_filter()
     print()
     await test_input_plugin()
-
-    # Part 2B: Output guardrails
-    print("\n--- Part 2B: Output Guardrails ---")
-    from guardrails.output_guardrails import test_content_filter, _init_judge
-    _init_judge()  # Initialize LLM judge if TODO 7 is done
+    _init_judge()
     test_content_filter()
-
-    # Part 2C: NeMo Guardrails
-    print("\n--- Part 2C: NeMo Guardrails ---")
-    try:
-        from guardrails.nemo_guardrails import init_nemo, test_nemo_guardrails
-        init_nemo()
-        await test_nemo_guardrails()
-    except ImportError:
-        print("NeMo Guardrails not available. Skipping Part 2C.")
-    except Exception as e:
-        print(f"NeMo error: {e}. Skipping Part 2C.")
 
 
 async def part3_testing():
@@ -144,16 +229,19 @@ async def main(parts=None):
     Args:
         parts: List of part numbers to run, or None for all
     """
-    setup_api_key()
-
     if parts is None:
-        parts = [1, 2, 3, 4]
+        parts = [2]
+
+    if 1 in parts:
+        from core.config import setup_api_key
+
+        setup_api_key()
 
     for part in parts:
         if part == 1:
             await part1_attacks()
         elif part == 2:
-            await part2_guardrails()
+            await part2_controlled_security()
         elif part == 3:
             await part3_testing()
         elif part == 4:
@@ -171,12 +259,30 @@ if __name__ == "__main__":
         description="Lab 11: Guardrails, HITL & Responsible AI"
     )
     parser.add_argument(
-        "--part", type=int, choices=[1, 2, 3, 4],
-        help="Run only a specific part (1-4). Default: run all.",
+        "--part", type=int, choices=[1, 2],
+        help="Run Part 1 (red-team demo) or Part 2 (2026 checkpoint).",
+    )
+    parser.add_argument(
+        "--legacy-part",
+        type=int,
+        choices=[2, 3, 4],
+        help="Run an optional pre-2026 walkthrough; it is not the graded checkpoint.",
     )
     args = parser.parse_args()
 
-    if args.part:
+    if args.part and args.legacy_part:
+        parser.error("Use either --part or --legacy-part, not both.")
+    if args.legacy_part:
+        if args.legacy_part == 2:
+            asyncio.run(legacy_part2_guardrails())
+        elif args.legacy_part == 3:
+            from core.config import setup_api_key
+
+            setup_api_key()
+            asyncio.run(part3_testing())
+        else:
+            part4_hitl()
+    elif args.part:
         asyncio.run(main(parts=[args.part]))
     else:
         asyncio.run(main())

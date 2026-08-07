@@ -11,6 +11,27 @@ from assignment.audit_log import AuditLogPlugin
 from assignment.monitoring import MonitoringAlert
 
 
+import re
+from urllib.parse import urlparse
+
+APPROVED_VINBANK_HOSTS = frozenset({
+    "api.vinbank.example",
+    "cases.vinbank.example",
+    "api.vinbank.com",
+    "vinbank.example",
+})
+
+SENSITIVE_PAYLOAD_PATTERNS = [
+    r"sk-[a-zA-Z0-9-]+",
+    r"\badmin123\b",
+    r"db\.vinbank\.internal(?::\d+)?",
+    r"(?:password|mật\s*khẩu)\s*[:=]\s*\S+",
+    r"[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}",
+    r"(?<!\d)0\d{9,10}(?!\d)",
+    r"(?<!\d)\d{12}(?!\d)|(?<!\d)\d{9}(?!\d)",
+]
+
+
 def is_egress_allowed(destination: str, payload: str) -> bool:
     """TODO 8A: Enforce a destination allowlist before any data leaves the agent.
 
@@ -19,7 +40,22 @@ def is_egress_allowed(destination: str, payload: str) -> bool:
     contain a password, API key, database host, phone number or email address.
     Do not let the LLM's prose decide this policy.
     """
-    raise NotImplementedError("Implement is_egress_allowed")
+    if not destination or not payload:
+        return False
+
+    parsed = urlparse(destination)
+    if parsed.scheme.lower() != "https":
+        return False
+
+    hostname = (parsed.hostname or "").lower()
+    if hostname not in APPROVED_VINBANK_HOSTS:
+        return False
+
+    for pattern in SENSITIVE_PAYLOAD_PATTERNS:
+        if re.search(pattern, payload, re.IGNORECASE):
+            return False
+
+    return True
 
 
 def build_production_plugins(

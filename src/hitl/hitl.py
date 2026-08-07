@@ -65,79 +65,77 @@ class ConfidenceRouter:
         Returns:
             RoutingDecision with routing action and metadata
         """
-        # TODO 11: Implement routing logic
-        #
-        # 1. Check if action_type is in HIGH_RISK_ACTIONS
-        #    -> If yes: always escalate (action="escalate", priority="high",
-        #       requires_human=True, reason="High-risk action: {action_type}")
-        #
-        # 2. Check confidence thresholds:
-        #    - confidence >= 0.9:
-        #      action="auto_send", priority="low",
-        #      requires_human=False, reason="High confidence"
-        #
-        #    - 0.7 <= confidence < 0.9:
-        #      action="queue_review", priority="normal",
-        #      requires_human=True, reason="Medium confidence — needs review"
-        #
-        #    - confidence < 0.7:
-        #      action="escalate", priority="high",
-        #      requires_human=True, reason="Low confidence — escalating"
+        # 1. High-risk actions always escalate regardless of confidence
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
 
-        return RoutingDecision(
-            action="auto_send",
-            confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+        # 2. Check confidence thresholds for ordinary actions
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+        elif confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence — needs review",
+                priority="normal",
+                requires_human=True,
+            )
+        else:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason="Low confidence — escalating",
+                priority="high",
+                requires_human=True,
+            )
 
 
 # ============================================================
 # TODO 12: Design 3 HITL decision points + a review lifecycle
-#
-# For each decision point, define:
-# - trigger: What condition activates this HITL check?
-# - hitl_model: Which model? (human-in-the-loop, human-on-the-loop,
-#   human-as-tiebreaker)
-# - context_needed: What info does the human reviewer need?
-# - example: A concrete scenario
-# - approval_path: What approve/reject/timeout decision is recorded?
-# - audit_fields: Which correlation ID, intent and proposed action/diff are logged?
-#
-# Think about real banking scenarios where human judgment is critical.
 # ============================================================
 
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Chuyển tiền sang tài khoản thụ hưởng mới hoặc hạn mức cao",
+        "trigger": "Hành động `transfer_money` khi số tiền vượt mức 50,000,000 VND hoặc chuyển tới người thụ hưởng chưa từng giao dịch trong 30 ngày.",
+        "hitl_model": "human-in-the-loop (bắt buộc người duyệt xác nhận trước khi thực thi lệnh egress API)",
+        "context_needed": "Diff thông tin thụ hưởng (STK cũ vs STK mới, tên chủ tài khoản), số tiền giao dịch, mã OTP/Xác thực sinh trắc học, tín hiệu bất thường (địa chỉ IP lạ, thiết bị mới).",
+        "example": "Khách hàng yêu cầu chuyển 100,000,000 VND từ tài khoản tiết kiệm tới STK 999888777 tại ngân hàng khác.",
+        "approval_path": "Approve: Ký mã HITL-XXXX và gọi API egress chuyển tiền. Reject: Hủy giao dịch, gửi thông báo cảnh báo bảo mật. Timeout (quá 5 phút): Tự động REJECT/HOLD giao dịch, tuyệt đối không tự động gửi tiền.",
+        "audit_fields": "request_id (UUID), intent ('transfer_money'), proposed_action_diff (from_account, to_account, amount), reviewer_id, reviewer_decision ('APPROVE'/'REJECT'/'TIMEOUT_HOLD'), audit_layer ('HITLGateway'), timestamp (ISO8601).",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Đóng tài khoản hoặc thay đổi mật khẩu/thông tin định danh",
+        "trigger": "Hành động nguy cơ cao (`close_account`, `change_password`, `update_personal_info`) phát sinh qua chatbot.",
+        "hitl_model": "human-in-the-loop (bắt buộc nhân viên kiểm tra hồ sơ và xác thực người dùng)",
+        "context_needed": "Yêu cầu gốc của khách hàng, bản diff thông tin thay đổi (ví dụ: SĐT/Email cũ vs mới, mật khẩu mới), hình ảnh CCCD/định danh đính kèm, trạng thái xác thực 2FA.",
+        "example": "Khách hàng gửi yêu cầu qua bot: 'Tôi muốn đóng tài khoản và chuyển toàn bộ số dư còn lại sang ngân hàng khác'.",
+        "approval_path": "Approve: Cấp mã xác nhận HITL để tiếp tục workflow đóng tài khoản/đổi pass. Reject: Từ chối và yêu cầu khách hàng ra chi nhánh gần nhất. Timeout (quá 10 phút): Tự động REJECT và tạm khóa tính năng thay đổi qua bot.",
+        "audit_fields": "request_id (UUID), intent ('close_account'/'change_password'), customer_id, proposed_diff, reviewer_id, reviewer_decision ('APPROVE'/'REJECT'/'TIMEOUT'), audit_layer ('HITLGateway'), timestamp (ISO8601).",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Kiểm duyệt phản hồi trả lời khách hàng có độ tin cậy trung bình (Medium Confidence)",
+        "trigger": "ConfidenceRouter xếp loại `queue_review` khi 0.70 <= confidence < 0.90 hoặc khi truy vấn RAG/Email ngoài chứa nội dung phức tạp.",
+        "hitl_model": "human-on-the-loop (người duyệt kiểm tra phản hồi trước khi gửi tới người dùng)",
+        "context_needed": "Câu hỏi của khách hàng, dự thảo phản hồi từ LLM, nguồn RAG/Email trích dẫn, điểm confidence score, danh sách từ khóa nguy cơ.",
+        "example": "Khách hàng hỏi: 'Điều khoản phạt trả nợ trước hạn gói vay thế chấp của tôi quy định như thế nào?'. LLM đạt confidence 0.82.",
+        "approval_path": "Approve: Cho phép phát hành phản hồi. Edit & Approve: Reviewer chỉnh sửa trực tiếp rồi gửi. Reject: Hủy phản hồi và chuyển câu hỏi cho tư vấn viên. Timeout (quá 3 phút): Chuyển sang hàng chờ tư vấn viên trực tiếp (Human Escalation), KHÔNG gửi phản hồi nghi ngờ cho khách.",
+        "audit_fields": "request_id (UUID), intent ('general_inquiry'), llm_response_draft, confidence_score, reviewer_id, reviewer_decision ('APPROVE'/'EDITED'/'REJECT'/'TIMEOUT_ESCALATE'), audit_layer ('ConfidenceRouter'), timestamp (ISO8601).",
     },
 ]
 
